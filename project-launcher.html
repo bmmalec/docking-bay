@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';" />
+<title>Docking Bay</title>
+<link rel="manifest" href="./launcher-manifest.webmanifest" />
+<link rel="icon" href="./launcher-icon.svg" type="image/svg+xml" />
+<meta name="theme-color" content="#121317" />
+<style>
+  :root {
+    --bg: #121317;
+    --surface: #1b1d23;
+    --surface-2: #22252c;
+    --surface-3: #2a2e37;
+    --border: #2e323b;
+    --text: #e8e9ec;
+    --text-dim: #9497a3;
+    --text-faint: #5b5f6b;
+    --accent: #5b8cff;
+    --star: #f2c94c;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Liberation Mono", monospace;
+    --ui: -apple-system, "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--ui);
+    line-height: 1.5;
+    padding: 40px 24px 96px;
+  }
+  .wrap { max-width: 1040px; margin: 0 auto; }
+
+  header { margin-bottom: 24px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+  h1 { font-size: 26px; font-weight: 650; margin: 0 0 16px; letter-spacing: -0.01em; }
+
+  .search-wrap { position: relative; }
+  #search {
+    width: 100%;
+    font-family: var(--ui);
+    font-size: 15px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 11px 14px;
+    outline: none;
+  }
+  #search:focus { border-color: var(--accent); }
+  #search::placeholder { color: var(--text-faint); }
+  .search-hint {
+    margin-top: 6px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+  }
+  .search-hint kbd {
+    font-family: var(--mono);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0 5px;
+    color: var(--text-dim);
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .toolbar-btn {
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 7px 12px;
+    cursor: pointer;
+  }
+  .toolbar-btn:hover { border-color: var(--accent); }
+  .scheme-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .scheme-label select {
+    font-family: var(--ui);
+    font-size: 12.5px;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+  }
+
+  #load-error {
+    display: none;
+    margin: 20px 0;
+    padding: 14px 16px;
+    background: #2a1616;
+    border: 1px solid #5b2b2b;
+    border-radius: 8px;
+    font-size: 13.5px;
+    color: #f2c9c9;
+    white-space: pre-line;
+  }
+  #load-error code {
+    font-family: var(--mono);
+    background: #1b1d23;
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--text);
+  }
+
+  section.group { margin-bottom: 34px; }
+  .group-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .group-head h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-faint);
+    font-weight: 650;
+    margin: 0;
+  }
+  .group-head .family-note {
+    font-size: 13px;
+    color: var(--text-dim);
+    margin: 0;
+  }
+  .reset-btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 3px 8px;
+    cursor: pointer;
+  }
+  .reset-btn:hover { color: var(--text); border-color: var(--text-faint); }
+
+  .empty-note {
+    font-size: 13px;
+    color: var(--text-faint);
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+
+  .chipgrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 10px;
+  }
+
+  .chip {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+  }
+  .chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chip.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .chip.missing { opacity: 0.45; }
+  .chip.missing .chipmeta { color: #d68484; }
+  .chip.review { outline: 1px dashed var(--star); outline-offset: 1px; }
+
+  .titlebar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 10px;
+    font-size: 12.5px;
+    font-weight: 650;
+  }
+  .titlebar .emoji { font-size: 13px; flex: none; }
+  .titlebar .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+
+  .star-btn {
+    flex: none;
+    width: 18px; height: 18px;
+    display: flex; align-items: center; justify-content: center;
+    background: none; border: none; cursor: pointer;
+    opacity: 0.55;
+    font-size: 13px;
+    padding: 0;
+    color: inherit;
+  }
+  .star-btn:hover { opacity: 1; }
+  .star-btn.on { opacity: 1; color: var(--star); }
+
+  .chipmeta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    background: var(--surface-2);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text-faint);
+  }
+  .chipmeta .path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chipmeta .meta-right { flex: none; display: flex; align-items: center; gap: 6px; }
+  .chipmeta .delete-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.5;
+    cursor: pointer;
+    font-size: 11px;
+    padding: 0;
+    line-height: 1;
+  }
+  .chipmeta .delete-btn:hover { opacity: 1; color: #f2a5a5; }
+
+  dialog#add-dialog {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    width: min(420px, 90vw);
+  }
+  dialog#add-dialog::backdrop { background: rgba(0,0,0,0.55); }
+  dialog#add-dialog h2 { margin: 0 0 16px; font-size: 17px; }
+  #add-form label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+  }
+  #add-form input[type="text"],
+  #add-form select {
+    display: block;
+    width: 100%;
+    margin-top: 5px;
+    font-family: var(--ui);
+    font-size: 14px;
+    color: var(--text);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+  #add-form input[type="color"] {
+    margin-top: 5px;
+    width: 48px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface-2);
+  }
+  #add-form .kind-fields { border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 4px; }
+  .form-error {
+    font-size: 12.5px;
+    color: #f2a5a5;
+    background: #2a1616;
+    border: 1px solid #5b2b2b;
+    border-radius: 6px;
+    padding: 8px 10px;
+    margin: 0 0 12px;
+  }
+  .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+  .dialog-actions button {
+    font-family: var(--ui);
+    font-size: 13px;
+    font-weight: 600;
+    border-radius: 7px;
+    padding: 7px 14px;
+    cursor: pointer;
+  }
+  #f-cancel { background: none; color: var(--text-dim); border: 1px solid var(--border); }
+  #f-save { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+
+  dialog#help-dialog {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 26px 28px;
+    width: min(560px, 92vw);
+    max-height: 82vh;
+    overflow-y: auto;
+  }
+  dialog#help-dialog::backdrop { background: rgba(0,0,0,0.55); }
+  dialog#help-dialog h2 { margin: 0 0 18px; font-size: 18px; }
+  dialog#help-dialog h3 {
+    margin: 22px 0 8px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-faint);
+  }
+  dialog#help-dialog h3:first-of-type { margin-top: 0; }
+  dialog#help-dialog p { margin: 0 0 8px; font-size: 13.5px; color: var(--text-dim); }
+  dialog#help-dialog dl { margin: 0; font-size: 13.5px; }
+  dialog#help-dialog dt { color: var(--text); font-weight: 650; margin-top: 8px; }
+  dialog#help-dialog dt:first-child { margin-top: 0; }
+  dialog#help-dialog dd { margin: 2px 0 0; color: var(--text-dim); }
+  dialog#help-dialog .shortcut-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+    font-size: 13.5px;
+  }
+  dialog#help-dialog .shortcut-row kbd {
+    font-family: var(--mono);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    color: var(--text-dim);
+  }
+  dialog#help-dialog .tip {
+    margin-top: 20px;
+    padding: 10px 12px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+  dialog#help-dialog .dialog-actions { margin-top: 20px; }
+  #help-close { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-faint);
+  }
+  footer p { margin: 0 0 8px; }
+  footer code { font-family: var(--mono); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; color: var(--text); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <p class="eyebrow" id="eyebrow">loading&hellip;</p>
+    <h1>Docking Bay</h1>
+    <div class="search-wrap">
+      <input id="search" type="text" placeholder="Filter projects&hellip;" autocomplete="off" spellcheck="false" />
+    </div>
+    <p class="search-hint">Type to filter &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> to move &middot; <kbd>Enter</kbd> to launch &middot; <kbd>Esc</kbd> to clear</p>
+    <div class="toolbar">
+      <div style="display:flex; gap:8px;">
+        <button type="button" class="toolbar-btn" id="add-btn">+ Add project</button>
+        <button type="button" class="toolbar-btn" id="help-btn" title="Help">?</button>
+      </div>
+      <label class="scheme-label">Color
+        <select id="color-scheme">
+          <option value="manual">Manual (as saved)</option>
+          <option value="hash-palette">Hash &rarr; palette</option>
+          <option value="family">Family clustering</option>
+          <option value="kind">By launch kind</option>
+          <option value="rainbow">Alphabetical rainbow</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <div id="load-error"></div>
+
+  <dialog id="add-dialog">
+    <form id="add-form">
+      <h2>Add project</h2>
+      <p id="f-error" class="form-error" hidden></p>
+
+      <label>Title
+        <input id="f-title" type="text" required placeholder="My Project" />
+      </label>
+      <label>Folder / ID (must be unique)
+        <input id="f-id" type="text" required placeholder="my-project" />
+      </label>
+      <label>Emoji
+        <input id="f-emoji" type="text" maxlength="4" value="⚪" />
+      </label>
+      <label>Launch kind
+        <select id="f-kind">
+          <option value="local">Local folder</option>
+          <option value="ssh">SSH folder</option>
+          <option value="ssh-devcontainer">SSH devcontainer</option>
+          <option value="wsl">WSL</option>
+        </select>
+      </label>
+
+      <div id="fields-local" class="kind-fields">
+        <label>Path
+          <input id="f-local-path" type="text" placeholder="C:\Users\me\code\Foo" />
+        </label>
+      </div>
+      <div id="fields-ssh" class="kind-fields" hidden>
+        <label>Profile
+          <select id="f-ssh-profile"></select>
+        </label>
+        <label>Path
+          <input id="f-ssh-path" type="text" placeholder="/home/me/foo" />
+        </label>
+      </div>
+      <div id="fields-ssh-devcontainer" class="kind-fields" hidden>
+        <label>Profile
+          <select id="f-dc-profile"></select>
+        </label>
+        <label>Host path
+          <input id="f-dc-hostpath" type="text" placeholder="/home/dev/code/Foo" />
+        </label>
+        <label>Workspace folder
+          <input id="f-dc-wsfolder" type="text" value="/workspace" />
+        </label>
+      </div>
+      <div id="fields-wsl" class="kind-fields" hidden>
+        <label>Distro
+          <input id="f-wsl-distro" type="text" placeholder="Ubuntu" />
+        </label>
+        <label>Path
+          <input id="f-wsl-path" type="text" placeholder="/home/me/foo" />
+        </label>
+      </div>
+
+      <label style="display:inline-block; margin-right:16px;">Background
+        <input id="f-bg" type="color" value="#3B82F6" />
+      </label>
+      <label style="display:inline-block;">Text
+        <input id="f-fg" type="color" value="#FFFFFF" />
+      </label>
+
+      <div class="dialog-actions">
+        <button type="button" id="f-cancel">Cancel</button>
+        <button type="submit" id="f-save">Add</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="help-dialog">
+    <h2>How this works</h2>
+
+    <h3>Keyboard</h3>
+    <div class="shortcut-row"><kbd>type</kbd> filter tiles by title or folder name</div>
+    <div class="shortcut-row"><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> move the selection around the grid</div>
+    <div class="shortcut-row"><kbd>Enter</kbd> launch the selected tile</div>
+    <div class="shortcut-row"><kbd>Esc</kbd> clear the search box</div>
+
+    <h3>Launch kinds</h3>
+    <dl>
+      <dt>Local folder</dt>
+      <dd>Opens a folder on this machine &mdash; <code>vscode://file/&lt;path&gt;/</code>.</dd>
+      <dt>SSH folder</dt>
+      <dd>Opens a plain remote folder over SSH, no container involved.</dd>
+      <dt>SSH devcontainer</dt>
+      <dd>SSHes in, then attaches to that folder's <code>.devcontainer/devcontainer.json</code>.</dd>
+      <dt>WSL</dt>
+      <dd>Opens a folder inside a WSL distro &mdash; <code>vscode://vscode-remote/wsl+&lt;distro&gt;/&lt;path&gt;</code>.</dd>
+    </dl>
+    <p>Every launch link carries <code>?windowId=_blank</code> so it always opens a fresh VS Code window instead of hijacking whichever one currently has focus.</p>
+
+    <h3>Color schemes</h3>
+    <dl>
+      <dt>Manual</dt><dd>Whatever <code>bg</code>/<code>fg</code> is saved for that tile.</dd>
+      <dt>Hash &rarr; palette</dt><dd>Each project's name is hashed into one of ~14 curated colors &mdash; stable, zero setup.</dd>
+      <dt>Family clustering</dt><dd>Projects with related names (e.g. <code>Foo</code>, <code>Foo_Public</code>, <code>Foo_Test</code>) auto-share a hue, shaded by variant &mdash; an automatic approximation of hand-picking a color per project family.</dd>
+      <dt>By launch kind</dt><dd>Color tells you the mechanism: local, ssh, devcontainer, and wsl each get their own hue.</dd>
+      <dt>Alphabetical rainbow</dt><dd>Purely visual &mdash; a hue sweep across the sorted project list.</dd>
+    </dl>
+    <p>Switching schemes only changes what's rendered &mdash; it never writes to <code>projects.json</code>.</p>
+
+    <div class="tip">
+      <strong>Taskbar tip:</strong> each project's own <code>.vscode/settings.json</code> can set
+      <code>window.title</code> and <code>workbench.colorCustomizations</code> (titlebar bg/fg) &mdash;
+      the same emoji + color you picked for its tile here. Do that consistently and your Windows
+      taskbar and Alt-Tab switcher show a distinct emoji + title per window, so switching between
+      several open VS Code windows is as fast as picking a tile here in the first place.
+    </div>
+
+    <div class="dialog-actions">
+      <button type="button" id="help-close">Close</button>
+    </div>
+  </dialog>
+
+  <section class="group" id="recent-section" style="display:none">
+    <div class="group-head">
+      <h2>Recent</h2>
+      <button class="reset-btn" id="reset-recent">Reset</button>
+    </div>
+    <div class="chipgrid" id="recent-grid"></div>
+  </section>
+
+  <section class="group" id="favorites-section" style="display:none">
+    <div class="group-head">
+      <h2>Favorites</h2>
+      <button class="reset-btn" id="reset-favorites">Reset</button>
+    </div>
+    <div class="chipgrid" id="favorites-grid"></div>
+  </section>
+
+  <section class="group" id="all-section">
+    <div class="group-head"><h2>All Projects</h2></div>
+    <div class="chipgrid" id="all-grid"></div>
+    <p class="empty-note" id="no-results" style="display:none">No projects match &ldquo;<span id="no-results-query"></span>&rdquo;.</p>
+  </section>
+
+  <footer>
+    <p>Click a tile to open it &mdash; focuses the window if it's already open, launches fresh (SSH &rarr; devcontainer) in a new window if not. Click <span style="color:var(--star)">&#9733;</span> to pin a favorite. Projects without a devcontainer open as a plain SSH folder instead.</p>
+    <p>Fully self-contained: this page only ever talks to itself (see the CSP header) &mdash; no analytics, no external requests, no accounts. <code>localStorage</code> holds Recent/Favorites; <code>projects.json</code> and <code>launcher.config.json</code> hold the project list and your host/user/path, both plain text you can read before trusting. Launch links are local <code>vscode://</code> deep links opened by your OS's VS Code handler &mdash; this page never runs a remote command itself.</p>
+  </footer>
+</div>
+
+<script src="./project-launcher.js"></script>
+</body>
+</html>

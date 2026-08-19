@@ -1,0 +1,14 @@
+{
+  "name": "Docking Bay",
+  "short_name": "Docking Bay",
+  "description": "A keyboard-driven launcher for VS Code — local, SSH, devcontainer, and WSL projects",
+  "start_url": "./project-launcher.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#121317",
+  "theme_color": "#121317",
+  "icons": [
+    { "src": "./launcher-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./launcher-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

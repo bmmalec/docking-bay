@@ -1,0 +1,21 @@
+[
+  { "p": "Nova",           "t": "Nova",          "e": "🔵", "bg": "#1E40AF", "fg": "#FFFFFF", "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/dev/code/Nova", "workspaceFolder": "/workspace" } },
+  { "p": "Nova_Public",    "t": "Nova Public",   "e": "🔵", "bg": "#3B82F6", "fg": "#FFFFFF", "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/dev/code/Nova_Public", "workspaceFolder": "/workspace" } },
+  { "p": "Nova_Api",       "t": "Nova API",      "e": "🔵", "bg": "#2563EB", "fg": "#FFFFFF", "target": { "kind": "ssh", "profile": "dev-box", "path": "/home/dev/code/Nova_Api" } },
+
+  { "p": "Atlas",          "t": "Atlas",         "e": "🟣", "bg": "#6366F1", "fg": "#FFFFFF", "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/dev/code/Atlas", "workspaceFolder": "/workspace" } },
+  { "p": "Atlas_Worker",   "t": "Atlas Worker",  "e": "🟣", "bg": "#818CF8", "fg": "#1E1B4B", "target": { "kind": "ssh", "profile": "dev-box", "path": "/home/dev/code/Atlas_Worker" } },
+
+  { "p": "Pixel",          "t": "Pixel",         "e": "🟠", "bg": "#EA580C", "fg": "#FFFFFF", "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/dev/code/Pixel", "workspaceFolder": "/workspace" } },
+  { "p": "Pixel_Admin",    "t": "Pixel Admin",   "e": "🟠", "bg": "#FB923C", "fg": "#431407", "target": { "kind": "ssh", "profile": "dev-box", "path": "/home/dev/code/Pixel_Admin" } },
+
+  { "p": "Forge",          "t": "Forge",         "e": "🟢", "bg": "#16A34A", "fg": "#FFFFFF", "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/dev/code/Forge", "workspaceFolder": "/workspace" } },
+
+  { "p": "Quill",          "t": "Quill",         "e": "🌸", "bg": "#EC4899", "fg": "#FFFFFF", "target": { "kind": "wsl", "distro": "Ubuntu", "path": "/home/dev/quill" } },
+
+  { "p": "Vault",          "t": "Vault",         "e": "🔴", "bg": "#DC2626", "fg": "#FFFFFF", "target": { "kind": "local", "path": "C:/Users/dev/code/Vault" } },
+
+  { "p": "Sandbox",        "t": "Sandbox",       "e": "🧰", "bg": "#64748B", "fg": "#FFFFFF", "target": { "kind": "local", "path": "C:/Users/dev/code/Sandbox" } },
+
+  { "p": "Notebook",       "t": "Notebook",      "e": "📈", "bg": "#06B6D4", "fg": "#FFFFFF", "target": { "kind": "ssh", "profile": "dev-box", "path": "/home/dev/code/Notebook" } }
+]
