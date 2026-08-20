@@ -6,6 +6,7 @@ let filterText = "";
 let selectedIndex = 0;
 let visibleChips = [];
 let colorMap = new Map();
+let searchEl = null;
 
 const LS_RECENT = "launcher.recent";
 const LS_FAVS = "launcher.favorites";
@@ -283,6 +284,7 @@ function makeChip(proj) {
         setCustom(getCustom().filter((c) => c.p !== proj.p));
         render();
       }
+      if (searchEl) searchEl.focus();
     });
     rightWrap.append(delBtn);
   }
@@ -300,6 +302,7 @@ function makeChip(proj) {
     ev.stopPropagation();
     toggleFav(proj.p);
     render();
+    if (searchEl) searchEl.focus();
   });
 
   return a;
@@ -410,6 +413,7 @@ function setupHelpDialog() {
   const dialog = document.getElementById("help-dialog");
   document.getElementById("help-btn").addEventListener("click", () => dialog.showModal());
   document.getElementById("help-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => { if (searchEl) searchEl.focus(); });
 }
 
 // --- add-project dialog ---
@@ -464,6 +468,7 @@ function setupAddDialog() {
   });
 
   cancelBtn.addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => { if (searchEl) searchEl.focus(); });
 
   form.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -520,11 +525,18 @@ async function boot() {
   });
 
   const search = document.getElementById("search");
+  searchEl = search;
   search.addEventListener("input", () => {
     filterText = search.value;
     render();
   });
-  search.addEventListener("keydown", (e) => {
+
+  // Document-level (not just while #search has focus) so arrow keys still
+  // drive the grid after clicking a star/delete button or closing a dialog —
+  // those all move focus off the search box, and the browser's default for
+  // arrow keys with no text field focused is to scroll the page.
+  document.addEventListener("keydown", (e) => {
+    if (document.querySelector("dialog[open]")) return; // let dialogs handle their own keys
     switch (e.key) {
       case "ArrowDown": e.preventDefault(); moveSelection("down"); break;
       case "ArrowUp": e.preventDefault(); moveSelection("up"); break;

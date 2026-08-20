@@ -1,4 +1,4 @@
-const CACHE = "launcher-shell-v4";
+const CACHE = "launcher-shell-v5";
 const SHELL = [
   "./project-launcher.html",
   "./project-launcher.js",
