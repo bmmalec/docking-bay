@@ -1,0 +1,29 @@
+{
+    "name": "DockingBay",
+    "image": "brian-dev:latest",
+    "workspaceFolder": "/workspace",
+    "workspaceMount": "source=/mnt/dev/DockingBay,target=/workspace,type=bind",
+    "mounts": [
+        "source=/mnt/dev/claude-toolkit,target=/toolkit,type=bind,readonly",
+        "source=/home/bmalec/.gitconfig,target=/home/bmalec/.gitconfig,type=bind,readonly",
+        "source=/home/bmalec/.ssh,target=/home/bmalec/.ssh,type=bind,readonly",
+        "source=/home/bmalec/.claude,target=/home/bmalec/.claude,type=bind",
+        "source=/home/bmalec/.claude.json,target=/home/bmalec/.claude.json,type=bind"
+    ],
+    "remoteUser": "bmalec",
+    "remoteEnv": {
+        "HOME": "/home/bmalec"
+    },
+    "containerEnv": {
+        "HOME": "/home/bmalec"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode"
+            ]
+        }
+    },
+    "postCreateCommand": "test -f package.json && npm install || true"
+}
