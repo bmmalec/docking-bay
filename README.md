@@ -34,8 +34,8 @@ Enter, you're in.
   name (`Foo`, `Foo_Public`, `Foo_Test` share a hue), color-by-launch-kind, or a
   pure alphabetical rainbow. Purely a view — never rewrites your data file.
 - **Project discovery** — list the places your projects live (an SSH host, a WSL
-  distro, a local folder) and **Rescan** finds them: from the button, at logon, or
-  on a timer. It never clobbers anything you've hand-edited.
+  distro, a local folder) and **Rescan** finds them: from the button (with the optional
+  helper), by running one script, at logon, or on a timer. It never clobbers anything you've hand-edited.
 - **No server** — the page runs from a `file://` path. The install script adds a
   desktop shortcut that opens it in its own app window.
 - **In-app help** — a `?` button opens a reference for shortcuts, launch kinds, and
@@ -63,12 +63,30 @@ For the current user only, this:
 
 - adds a **Docking Bay** desktop shortcut that opens the page in its own Edge/Chrome
   app window (pin it to the taskbar from there),
-- registers the `dockingbay://` link that the **Rescan** button opens,
 - adds a Startup shortcut that rescans at logon (`-EveryMinutes 60` also rescans on
   a timer), and
 - runs a first scan.
 
 `pwsh scripts/install-launcher.ps1 -Uninstall` removes all of it again.
+
+### One-click Rescan: the optional Node helper
+
+The page only reads files, so on its own the **Rescan** button can't start a scan: it
+shows the command to run (`pwsh scripts/refresh-projects.ps1`) with a Copy button,
+and the page reloads when you come back to it after the scan finishes.
+
+If you'd rather have a real button, install the helper (needs Node 18+, no
+`npm install`):
+
+```powershell
+pwsh scripts/install-launcher.ps1 -NodeHelper            # add -EveryMinutes 60 to rescan hourly
+```
+
+That adds a Startup shortcut for `helper/server.js` and starts it now. It listens on
+`127.0.0.1:47613` only, runs the same scan (a Node port of the PowerShell one, so
+it works without PowerShell), and replaces the PowerShell logon/timer scan. You can
+also run it by hand on any OS: `node helper/server.js` (add `--every 60`), or
+`node helper/server.js --once` for a single scan from the command line.
 
 **Upgrading from the old server-based version?** Uninstall the old "Docking Bay"
 app from Edge/Chrome first (otherwise its cached copy keeps opening), then run the
@@ -144,7 +162,7 @@ immediate subfolders and makes a tile for each:
 Add as many as you like, including several paths on the same host. (A `basePath`
 on a profile, from older configs, still counts as an `ssh` scan of that path.)
 
-Trigger a scan with the **Rescan** button (`Alt`+`R`), or directly:
+Trigger a scan with the **Rescan** button (`Alt`+`R`; one click with the helper, otherwise it shows the command), or directly:
 
 ```powershell
 pwsh scripts/refresh-projects.ps1
@@ -187,15 +205,23 @@ five projects at once, telling them apart again is just as fast:
 
 ## How it stays safe to hand to a stranger
 
-- No server and no open port — the page is a file on disk.
+- No server and no open port by default — the page is a file on disk. The optional
+  helper is the one exception, and it listens on `127.0.0.1` only.
 - `default-src 'none'` CSP — the page cannot fetch, post, or load anything beyond
-  its own script files, full stop.
+  its own script files, apart from `connect-src http://127.0.0.1:47613`, which is
+  the helper and nothing else.
 - No `innerHTML` on anything data-derived — everything is built with
   `textContent`/`createElement`.
 - Scanning only ever runs one fixed, read-only script; folder names it discovers
   are treated strictly as data, never re-interpolated into a shell command.
-- The `dockingbay://` link runs that scan and nothing else. The link's contents are
-  never passed to the script, so the worst a stray link can do is start a scan.
+- The helper exposes only `GET /status` and `POST /rescan`. `/rescan` takes no input
+  and runs the fixed scan, so the worst a stray request can do is start a scan. It
+  rejects any `Host` other than `127.0.0.1`/`localhost` (DNS rebinding), any `Origin`
+  other than the `null` a page opened from disk sends, and requests without its
+  custom `X-Docking-Bay` header.
+- No custom URL protocol is registered. (Earlier versions registered `dockingbay://`,
+  which made the browser launch a hidden PowerShell and was flagged by security
+  software. The installer now removes it.)
 - Nothing is sent anywhere. `localStorage` is the only browser state, and it never
   leaves your browser profile.
 - The install script touches only your own user profile (one registry key under
@@ -210,6 +236,8 @@ five projects at once, telling them apart again is just as fast:
 | `projects.js` | The tile list |
 | `scan-status.js` | Written by each scan (when, what changed); not committed |
 | `launcher-icon.svg` / `launcher-icon.ico` | Page and shortcut icon |
-| `scripts/install-launcher.ps1` | One-time Windows setup: shortcut, Rescan link, logon scan |
-| `scripts/refresh-projects.ps1` | The scan itself |
+| `scripts/install-launcher.ps1` | One-time Windows setup: shortcut, logon scan, optional `-NodeHelper` |
+| `scripts/refresh-projects.ps1` | The scan itself (PowerShell) |
+| `helper/server.js` | Optional local service behind the one-click Rescan button; also `--once` |
+| `helper/scan.js`, `helper/data.js`, `helper/scan-remote.sh` | The same scan, ported to Node (keep in step with `refresh-projects.ps1`) |
 | `scripts/launcher-data.ps1` | Shared helpers for reading/writing the data files |

@@ -15,9 +15,11 @@ const LS_FAVS = "launcher.favorites";
 const LS_CUSTOM = "launcher.custom";
 const LS_SCHEME = "launcher.colorScheme";
 
-// Opened by the Rescan button. The handler (see scripts/install-launcher.ps1)
-// runs the fixed refresh script and ignores the URL, so this carries no data.
-const RESCAN_URI = "dockingbay://refresh";
+// Optional local helper (helper/server.js). If it's running, Rescan asks it to
+// scan; otherwise the button shows how to run the scan script by hand. The port
+// must match helper/server.js and the CSP connect-src in project-launcher.html.
+const HELPER_URL = "http://127.0.0.1:47613";
+const HELPER_PROBE_MS = 1500;
 const RESCAN_POLL_MS = 1500;
 const RESCAN_TIMEOUT_MS = 120000;
 
@@ -64,6 +66,7 @@ function buildUri(proj) {
   switch (t.kind) {
     case "ssh-devcontainer": {
       const profile = resolveProfile(t.profile);
+      if (!profile) return "#"; // profile removed from launcher.config.js; keep the rest of the grid working
       const sshHex = toHex(JSON.stringify({ hostName: profile.sshHost, user: profile.sshUser }));
       const hostPath = t.hostPath;
       const dcJson = JSON.stringify({
@@ -77,6 +80,7 @@ function buildUri(proj) {
     }
     case "ssh": {
       const profile = resolveProfile(t.profile);
+      if (!profile) return "#"; // profile removed from launcher.config.js; keep the rest of the grid working
       const sshHex = toHex(JSON.stringify({ hostName: profile.sshHost, user: profile.sshUser }));
       return `vscode://vscode-remote/ssh-remote%2B${sshHex}${t.path}?windowId=_blank`;
     }
@@ -471,13 +475,45 @@ function loadScanStatus() {
 
 function scanStamp() { return SCAN && SCAN.at ? SCAN.at : null; }
 
-function startRescan() {
+// Resolves true if the helper accepted the request, false if it isn't there.
+async function askHelperToRescan() {
+  try {
+    const res = await fetch(`${HELPER_URL}/rescan`, {
+      method: "POST",
+      headers: { "X-Docking-Bay": "1" },
+      signal: AbortSignal.timeout(HELPER_PROBE_MS),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+function scanScriptCommand() {
+  // file:///E:/Code/docking-bay/project-launcher.html -> E:/Code/docking-bay/scripts/refresh-projects.ps1
+  let dir = "";
+  try {
+    dir = decodeURIComponent(location.pathname).replace(/^\/(?=[A-Za-z]:)/, "").replace(/\/[^/]*$/, "");
+  } catch { /* fall through to the relative form */ }
+  return dir ? `pwsh "${dir}/scripts/refresh-projects.ps1"` : "pwsh scripts/refresh-projects.ps1";
+}
+
+function showRescanHelp() {
+  document.getElementById("rescan-cmd").textContent = scanScriptCommand();
+  document.getElementById("rescan-dialog").showModal();
+}
+
+async function startRescan() {
   if (rescanTimer) return;
   const btn = document.getElementById("rescan-btn");
-  const started = Date.now();
   btn.disabled = true;
-  setScanNote("Scanning\u2026");
-  window.location.href = RESCAN_URI;
+  if (!(await askHelperToRescan())) {
+    btn.disabled = false;
+    showRescanHelp();
+    return;
+  }
+  const started = Date.now();
+  setScanNote("Scanning…");
 
   rescanTimer = setInterval(async () => {
     const status = await loadScanStatus();
@@ -489,9 +525,7 @@ function startRescan() {
       clearInterval(rescanTimer);
       rescanTimer = null;
       btn.disabled = false;
-      setScanNote(
-        "No scan result after 2 minutes. Rescan needs scripts/install-launcher.ps1 to have been run once on this machine; " +
-        "run scripts/refresh-projects.ps1 in a terminal to see what went wrong.", true);
+      setScanNote("No scan result after 2 minutes. Run the scan script in a terminal to see what went wrong.", true);
     }
   }, RESCAN_POLL_MS);
 }
@@ -501,6 +535,22 @@ async function reloadIfRescanned() {
   if (rescanTimer || document.querySelector("dialog[open]") || filterText) return;
   const status = await loadScanStatus();
   if (status && status.at && status.at !== scanStamp()) window.location.reload();
+}
+
+function setupRescanDialog() {
+  const dialog = document.getElementById("rescan-dialog");
+  document.getElementById("rescan-close").addEventListener("click", () => dialog.close());
+  dialog.addEventListener("close", () => { if (searchEl) searchEl.focus(); });
+  const copy = document.getElementById("rescan-copy");
+  copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(document.getElementById("rescan-cmd").textContent);
+      copy.textContent = "Copied";
+    } catch {
+      copy.textContent = "Select & copy";
+    }
+    setTimeout(() => { copy.textContent = "Copy"; }, 1500);
+  });
 }
 
 function setupHelpDialog() {
@@ -673,6 +723,7 @@ function boot() {
   schemeSelect.value = getScheme();
   setupAddDialog();
   setupHelpDialog();
+  setupRescanDialog();
 
   document.getElementById("rescan-btn").addEventListener("click", () => {
     startRescan();

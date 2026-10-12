@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none'; connect-src http://127.0.0.1:47613;" />
 <title>Docking Bay</title>
 <link rel="icon" href="./launcher-icon.svg" type="image/svg+xml" />
 <meta name="theme-color" content="#121317" />
@@ -310,7 +310,7 @@
   #f-cancel { background: none; color: var(--text-dim); border: 1px solid var(--border); }
   #f-save { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
 
-  dialog#help-dialog {
+  dialog.info-dialog {
     background: var(--surface);
     color: var(--text);
     border: 1px solid var(--border);
@@ -320,29 +320,29 @@
     max-height: 82vh;
     overflow-y: auto;
   }
-  dialog#help-dialog::backdrop { background: rgba(0,0,0,0.55); }
-  dialog#help-dialog h2 { margin: 0 0 18px; font-size: 18px; }
-  dialog#help-dialog h3 {
+  dialog.info-dialog::backdrop { background: rgba(0,0,0,0.55); }
+  dialog.info-dialog h2 { margin: 0 0 18px; font-size: 18px; }
+  dialog.info-dialog h3 {
     margin: 22px 0 8px;
     font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--text-faint);
   }
-  dialog#help-dialog h3:first-of-type { margin-top: 0; }
-  dialog#help-dialog p { margin: 0 0 8px; font-size: 13.5px; color: var(--text-dim); }
-  dialog#help-dialog dl { margin: 0; font-size: 13.5px; }
-  dialog#help-dialog dt { color: var(--text); font-weight: 650; margin-top: 8px; }
-  dialog#help-dialog dt:first-child { margin-top: 0; }
-  dialog#help-dialog dd { margin: 2px 0 0; color: var(--text-dim); }
-  dialog#help-dialog .shortcut-row {
+  dialog.info-dialog h3:first-of-type { margin-top: 0; }
+  dialog.info-dialog p { margin: 0 0 8px; font-size: 13.5px; color: var(--text-dim); }
+  dialog.info-dialog dl { margin: 0; font-size: 13.5px; }
+  dialog.info-dialog dt { color: var(--text); font-weight: 650; margin-top: 8px; }
+  dialog.info-dialog dt:first-child { margin-top: 0; }
+  dialog.info-dialog dd { margin: 2px 0 0; color: var(--text-dim); }
+  dialog.info-dialog .shortcut-row {
     display: flex;
     align-items: center;
     gap: 10px;
     margin-bottom: 6px;
     font-size: 13.5px;
   }
-  dialog#help-dialog .shortcut-row kbd {
+  dialog.info-dialog .shortcut-row kbd {
     font-family: var(--mono);
     background: var(--surface-2);
     border: 1px solid var(--border);
@@ -350,7 +350,7 @@
     padding: 1px 6px;
     color: var(--text-dim);
   }
-  dialog#help-dialog .tip {
+  dialog.info-dialog .tip {
     margin-top: 20px;
     padding: 10px 12px;
     background: var(--surface-2);
@@ -359,8 +359,14 @@
     font-size: 13px;
     color: var(--text-dim);
   }
-  dialog#help-dialog .dialog-actions { margin-top: 20px; }
-  #help-close { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+  dialog.info-dialog code { font-family: var(--mono); background: var(--surface-2); padding: 1px 6px; border-radius: 4px; color: var(--text); }
+  dialog.info-dialog .cmd-row { display: flex; gap: 8px; align-items: stretch; margin: 0 0 10px; }
+  dialog.info-dialog .cmd-row code {
+    flex: 1; padding: 8px 10px; font-size: 12.5px; overflow-x: auto; white-space: nowrap;
+    border: 1px solid var(--border); border-radius: 6px;
+  }
+  dialog.info-dialog .dialog-actions { margin-top: 20px; }
+  #help-close, #rescan-close { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
 
   footer {
     margin-top: 48px;
@@ -473,7 +479,26 @@
     </form>
   </dialog>
 
-  <dialog id="help-dialog">
+  <dialog id="rescan-dialog" class="info-dialog">
+    <h2>Run a rescan</h2>
+    <p>This page can&rsquo;t start a scan on its own &mdash; it only reads files. Run the scan script from a terminal; when it finishes, come back to this window and the page reloads with the new tiles.</p>
+
+    <h3>From a terminal (PowerShell 7)</h3>
+    <div class="cmd-row">
+      <code id="rescan-cmd"></code>
+      <button type="button" class="toolbar-btn" id="rescan-copy">Copy</button>
+    </div>
+    <p>It reads the locations under <code>scans</code> in <code>launcher.config.js</code> and updates <code>projects.js</code>. SSH scans use your existing key and never prompt, so load it into <code>ssh-agent</code> first if it has a passphrase.</p>
+
+    <h3>Or: install the helper</h3>
+    <p>The optional Node helper runs the same scan as a small local service, which turns this button into a one-click rescan. Run <code>pwsh scripts/install-launcher.ps1 -NodeHelper</code> once (needs Node 18+), or start it by hand with <code>node helper/server.js</code>.</p>
+
+    <div class="dialog-actions">
+      <button type="button" id="rescan-close">Close</button>
+    </div>
+  </dialog>
+
+  <dialog id="help-dialog" class="info-dialog">
     <h2>How this works</h2>
 
     <h3>Keyboard</h3>
@@ -485,7 +510,7 @@
 
     <h3>Discovering projects</h3>
     <p><strong>Rescan</strong> looks through every location listed under <code>scans</code> in <code>launcher.config.js</code> &mdash; an SSH host, a WSL distro, or a folder on this machine &mdash; and adds a tile for each subfolder it finds. New tiles are marked &ldquo;new, review&rdquo;; folders that have gone are marked &ldquo;missing&rdquo; rather than deleted.</p>
-    <p>The button needs <code>scripts/install-launcher.ps1</code> to have been run once. It also sets up a rescan at logon, so the list is usually current already.</p>
+    <p>The page only reads files, so it can&rsquo;t run the scan itself. Either run <code>pwsh scripts/refresh-projects.ps1</code> in a terminal (the Rescan button shows the exact command), or install the optional Node helper with <code>pwsh scripts/install-launcher.ps1 -NodeHelper</code> and the button rescans in one click. The installer also sets up a rescan at logon, so the list is usually current already.</p>
 
     <h3>Launch kinds</h3>
     <dl>
@@ -547,7 +572,7 @@
 
   <footer>
     <p>Click a tile to open it &mdash; focuses the window if it's already open, launches fresh (SSH &rarr; devcontainer) in a new window if not. Click <span style="color:var(--star)">&#9733;</span> to pin a favorite. Projects without a devcontainer open as a plain SSH folder instead.</p>
-    <p>Fully self-contained: this page runs straight from disk with no server and cannot make a network request (see the CSP header) &mdash; no analytics, no external requests, no accounts. <code>localStorage</code> holds Recent/Favorites; <code>projects.js</code> and <code>launcher.config.js</code> hold the project list and your host/user/path, both plain text you can read before trusting. Launch links are local <code>vscode://</code> deep links opened by your OS's VS Code handler; Rescan opens a <code>dockingbay://</code> link that runs the fixed scan script &mdash; this page never runs a command itself.</p>
+    <p>Fully self-contained: this page runs straight from disk with no server and no analytics, accounts or external requests. The only network request it can make (see the CSP header) is to the optional Docking Bay helper on <code>127.0.0.1</code>, if you installed it. <code>localStorage</code> holds Recent/Favorites; <code>projects.js</code> and <code>launcher.config.js</code> hold the project list and your host/user/path, both plain text you can read before trusting. Launch links are local <code>vscode://</code> deep links opened by your OS's VS Code handler; this page never runs a command itself &mdash; Rescan either asks the local helper to run its fixed scan or shows you the command to run.</p>
   </footer>
 </div>
 
