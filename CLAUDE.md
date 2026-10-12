@@ -45,3 +45,13 @@ python3 /toolkit/rallyai/rallyai.py session --project "{{RALLYAI_PROJECT_ID}}" -
 - Follow existing code style in the project
 - Log a session summary via `rallyai.py session` at the end of significant work
 - Ask before making architectural changes not covered in this file
+
+<!-- chat-command-center:start -->
+## Chat Command Center
+At the end of a session that changed something, put a final line in the last
+commit message: "Next: <the one next action>". If this session has the
+ArtifactData tool, also check in to the Chat Command Center board
+(https://claude.ai/code/artifact/545932f4-5bc9-425d-a7c9-827e67f21601):
+one card in the chats collection with the session link, where it left off,
+the next action, the venture and a nudge date.
+<!-- chat-command-center:end -->
