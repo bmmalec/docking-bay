@@ -62,6 +62,9 @@ for d in "$BASE"/*/; do
   printf '%s\x1f%s\x1f%s\x1f%s\x1f%s\x1f%s\n' "$name" "$hasdc" "$wsfolder" "$title" "$bg" "$fg"
 done
 '@
+# On a Windows checkout this file usually has CRLF line endings, which the
+# here-string inherits; bash treats the stray \r as part of each command.
+$remoteScript = $remoteScript -replace "`r", ""
 
 function Invoke-BashScan([string]$Exe, [string[]]$ExeArgs) {
   # Piping a multi-line string through PowerShell's pipeline to a native
