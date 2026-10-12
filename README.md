@@ -5,12 +5,13 @@ tile and it opens that project in VS Code — local folder, SSH folder, an SSH
 devcontainer, or WSL — always in its own fresh window, never hijacking whichever
 window currently has focus.
 
-It's a single static page. No build step, no backend, no account, no telemetry.
-Everything it knows lives in two JSON files you can read in a text editor.
+It's a single static page you open straight from disk. No server, no build step,
+no backend, no account, no telemetry. Everything it knows lives in two small data
+files you can read in a text editor.
 
 ![Docking Bay grid](docs/screenshot-grid.jpg)
 
-*(sample data shown — your own grid is whatever you put in `projects.json`)*
+*(sample data shown — your own grid is whatever you put in `projects.js`)*
 
 ## Why
 
@@ -32,33 +33,49 @@ Enter, you're in.
   colors, a deterministic hash-to-palette scheme, automatic "family" clustering by
   name (`Foo`, `Foo_Public`, `Foo_Test` share a hue), color-by-launch-kind, or a
   pure alphabetical rainbow. Purely a view — never rewrites your data file.
-- **Installable PWA** — service worker + manifest, works offline once loaded, adds
-  itself to your OS as a standalone app.
+- **Project discovery** — list the places your projects live (an SSH host, a WSL
+  distro, a local folder) and **Rescan** finds them: from the button, at logon, or
+  on a timer. It never clobbers anything you've hand-edited.
+- **No server** — the page runs from a `file://` path. The install script adds a
+  desktop shortcut that opens it in its own app window.
 - **In-app help** — a `?` button opens a reference for shortcuts, launch kinds, and
   color schemes without leaving the page.
 
   ![Help panel](docs/screenshot-help.jpg)
 - **Self-contained and inspectable** — a strict Content-Security-Policy means the
-  page literally cannot make an external request. Read `launcher.config.json` and
-  `projects.json` yourself before trusting them; there's nothing else to trust.
-- **Optional auto-detect** — a PowerShell script that SSHes into a configured host,
-  scans for devcontainers, and merges what it finds into `projects.json` without
-  clobbering anything you've hand-edited.
+  page literally cannot make a network request. Read `launcher.config.js` and
+  `projects.js` yourself before trusting them; there's nothing else to trust.
 
 ## Quick start
 
+Open `project-launcher.html` in a browser. That's the whole launcher — it works on
+any OS with nothing installed.
+
+On Windows, run the one-time setup (PowerShell 7, no admin needed) to get the
+desktop shortcut and project discovery:
+
 ```powershell
 # from the repo root
-pwsh scripts/serve-launcher.ps1
+pwsh scripts/install-launcher.ps1
 ```
 
-This starts a tiny zero-dependency static server (pure PowerShell, no Node/Python
-required) on `http://localhost:8420` and opens it in your default browser. It has
-to be served over `http://` — browsers won't fetch local JSON files, or offer to
-install a PWA, from a plain `file://` page.
+For the current user only, this:
 
-Chrome/Edge will offer an "Install" icon in the address bar — worth doing, it turns
-this into a real standalone app with its own window and taskbar icon.
+- adds a **Docking Bay** desktop shortcut that opens the page in its own Edge/Chrome
+  app window (pin it to the taskbar from there),
+- registers the `dockingbay://` link that the **Rescan** button opens,
+- adds a Startup shortcut that rescans at logon (`-EveryMinutes 60` also rescans on
+  a timer), and
+- runs a first scan.
+
+`pwsh scripts/install-launcher.ps1 -Uninstall` removes all of it again.
+
+**Upgrading from the old server-based version?** Uninstall the old "Docking Bay"
+app from Edge/Chrome first (otherwise its cached copy keeps opening), then run the
+install script: it converts an existing `projects.json` / `launcher.config.json`
+to the new `.js` files and keeps the originals as `.json.bak`. Favorites, Recent
+and tiles added through the in-app form were stored by the browser under the old
+`localhost` address and don't carry over.
 
 ## Adding a project
 
@@ -72,49 +89,79 @@ Click **+ Add project** and pick a kind:
 | WSL | Distro name + path inside it | `vscode://vscode-remote/wsl+<distro>/…` |
 
 Projects added this way are saved to your browser's `localStorage` — they never
-touch `projects.json` on disk, so there's nothing to accidentally commit.
+touch `projects.js` on disk, so there's nothing to accidentally commit.
 
 ## Configuration
 
-**`launcher.config.json`** defines reusable SSH connection profiles:
+Both data files are JSON wrapped in a single assignment, so the page can load them
+with a plain `<script>` tag (browsers won't let a page opened from disk read a
+`.json` file).
 
-```json
-{
+**`launcher.config.js`** defines reusable SSH connection profiles and where to look
+for projects:
+
+```js
+window.DOCKING_BAY_CONFIG = {
   "profiles": [
-    { "id": "dev-box", "label": "dev-box (10.0.0.50)", "sshHost": "10.0.0.50", "sshUser": "me", "basePath": "/home/me/code" }
+    { "id": "dev-box", "label": "dev-box (10.0.0.50)", "sshHost": "10.0.0.50", "sshUser": "me" }
+  ],
+  "scans": [
+    { "kind": "ssh",   "profile": "dev-box", "path": "/home/me/code" },
+    { "kind": "local", "path": "C:/Users/me/code" },
+    { "kind": "wsl",   "distro": "Ubuntu", "path": "/home/me/code" }
   ]
-}
+};
 ```
 
-**`projects.json`** is the tile list. Each entry:
+**`projects.js`** is the tile list. Each entry:
 
-```json
-{
-  "p": "my-project",
-  "t": "My Project",
-  "e": "🔵",
-  "bg": "#3B82F6",
-  "fg": "#FFFFFF",
-  "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/me/code/my-project", "workspaceFolder": "/workspace" }
-}
+```js
+window.DOCKING_BAY_PROJECTS = [
+  {
+    "p": "my-project",
+    "t": "My Project",
+    "e": "🔵",
+    "bg": "#3B82F6",
+    "fg": "#FFFFFF",
+    "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/me/code/my-project", "workspaceFolder": "/workspace" }
+  }
+];
 ```
 
-Both files are fetched at load time — edit them by hand, or let the app and the
-refresh script maintain them for you.
+Edit them by hand and reload the page, or let Rescan maintain `projects.js` for you.
 
-### Auto-detecting projects
+### Discovering projects
+
+Each entry under `scans` is one folder to look in. A scan lists that folder's
+immediate subfolders and makes a tile for each:
+
+| Kind | Needs | How it scans | Tiles it creates |
+|---|---|---|---|
+| `ssh` | `profile`, `path` | SSHes in with your existing key and runs one fixed, read-only script | SSH devcontainer if the folder has a `.devcontainer/devcontainer.json`, otherwise SSH folder |
+| `local` | `path` | Reads the folder on this machine directly | Local folder |
+| `wsl` | `distro`, `path` | Runs the same read-only script inside the distro | WSL |
+
+Add as many as you like, including several paths on the same host. (A `basePath`
+on a profile, from older configs, still counts as an `ssh` scan of that path.)
+
+Trigger a scan with the **Rescan** button (`Alt`+`R`), or directly:
 
 ```powershell
 pwsh scripts/refresh-projects.ps1
 ```
 
-For every profile in `launcher.config.json`, this SSHes in (using your existing SSH
-key — nothing new is provisioned) and does a read-only scan of `basePath` for
-`.devcontainer/devcontainer.json` files and any titlebar colors already set in each
-project's `.vscode/settings.json`. It merges non-destructively: new folders get
-added and flagged `_review` (pick an emoji), folders that disappeared get flagged
-`_missing` rather than deleted, and it never overwrites an emoji or a manual
-override you've already set.
+It merges non-destructively:
+
+- new folders are added and flagged `_review` (pick an emoji and title),
+- folders that disappeared are flagged `_missing` rather than deleted,
+- titlebar colors already set in a project's `.vscode/settings.json` are synced, and
+- emoji, titles and hand-added entries outside the scanned folders are never touched.
+
+A location that can't be reached (host down, key needs a passphrase) is reported
+under the Rescan button and skipped; its tiles are left exactly as they were. SSH
+runs non-interactively, so the key has to work without a prompt — load it into
+`ssh-agent` if it has a passphrase. If the same folder name exists in two scanned
+locations, the second tile's id gets the source appended (`Nova@local`).
 
 ## The taskbar trick
 
@@ -140,23 +187,29 @@ five projects at once, telling them apart again is just as fast:
 
 ## How it stays safe to hand to a stranger
 
-- `default-src 'self'` CSP — the page cannot fetch, post, or load anything
-  off-origin, full stop.
+- No server and no open port — the page is a file on disk.
+- `default-src 'none'` CSP — the page cannot fetch, post, or load anything beyond
+  its own script files, full stop.
 - No `innerHTML` on anything data-derived — everything is built with
   `textContent`/`createElement`.
-- The refresh script only ever runs one fixed, read-only remote command; folder
-  names it discovers are treated strictly as data, never re-interpolated into a
-  shell command.
-- Nothing is sent anywhere. `localStorage` is the only state, and it never leaves
-  your browser profile.
+- Scanning only ever runs one fixed, read-only script; folder names it discovers
+  are treated strictly as data, never re-interpolated into a shell command.
+- The `dockingbay://` link runs that scan and nothing else. The link's contents are
+  never passed to the script, so the worst a stray link can do is start a scan.
+- Nothing is sent anywhere. `localStorage` is the only browser state, and it never
+  leaves your browser profile.
+- The install script touches only your own user profile (one registry key under
+  `HKCU`, two shortcuts, optionally one scheduled task) and `-Uninstall` removes it.
 
 ## Files
 
 | File | Purpose |
 |---|---|
 | `project-launcher.html` / `project-launcher.js` | The app |
-| `launcher.config.json` | SSH connection profiles |
-| `projects.json` | The tile list |
-| `launcher-manifest.webmanifest`, `launcher-icon.svg`, `launcher-sw.js` | PWA plumbing |
-| `scripts/serve-launcher.ps1` | Zero-dependency local static server |
-| `scripts/refresh-projects.ps1` | Optional SSH auto-detect / merge |
+| `launcher.config.js` | SSH profiles and scan locations |
+| `projects.js` | The tile list |
+| `scan-status.js` | Written by each scan (when, what changed); not committed |
+| `launcher-icon.svg` / `launcher-icon.ico` | Page and shortcut icon |
+| `scripts/install-launcher.ps1` | One-time Windows setup: shortcut, Rescan link, logon scan |
+| `scripts/refresh-projects.ps1` | The scan itself |
+| `scripts/launcher-data.ps1` | Shared helpers for reading/writing the data files |

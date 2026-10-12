@@ -10,6 +10,9 @@
         "source=/home/bmalec/.claude,target=/home/bmalec/.claude,type=bind",
         "source=/home/bmalec/.claude.json,target=/home/bmalec/.claude.json,type=bind"
     ],
+    "portsAttributes": {
+        "8420": { "onAutoForward": "ignore" }
+    },
     "remoteUser": "bmalec",
     "remoteEnv": {
         "HOME": "/home/bmalec"

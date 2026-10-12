@@ -1,4 +1,4 @@
-[
+window.DOCKING_BAY_PROJECTS = [
   { "p": "Nova",           "t": "Nova",          "e": "🔵", "bg": "#1E40AF", "fg": "#FFFFFF", "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/dev/code/Nova", "workspaceFolder": "/workspace" } },
   { "p": "Nova_Public",    "t": "Nova Public",   "e": "🔵", "bg": "#3B82F6", "fg": "#FFFFFF", "target": { "kind": "ssh-devcontainer", "profile": "dev-box", "hostPath": "/home/dev/code/Nova_Public", "workspaceFolder": "/workspace" } },
   { "p": "Nova_Api",       "t": "Nova API",      "e": "🔵", "bg": "#2563EB", "fg": "#FFFFFF", "target": { "kind": "ssh", "profile": "dev-box", "path": "/home/dev/code/Nova_Api" } },
@@ -18,4 +18,4 @@
   { "p": "Sandbox",        "t": "Sandbox",       "e": "🧰", "bg": "#64748B", "fg": "#FFFFFF", "target": { "kind": "local", "path": "C:/Users/dev/code/Sandbox" } },
 
   { "p": "Notebook",       "t": "Notebook",      "e": "📈", "bg": "#06B6D4", "fg": "#FFFFFF", "target": { "kind": "ssh", "profile": "dev-box", "path": "/home/dev/code/Notebook" } }
-]
+];

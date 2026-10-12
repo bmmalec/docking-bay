@@ -2,6 +2,8 @@
 
 let CONFIG = null;
 let PROJECTS = [];
+let SCAN = null;
+let rescanTimer = null;
 let filterText = "";
 let selectedIndex = 0;
 let visibleChips = [];
@@ -12,6 +14,12 @@ const LS_RECENT = "launcher.recent";
 const LS_FAVS = "launcher.favorites";
 const LS_CUSTOM = "launcher.custom";
 const LS_SCHEME = "launcher.colorScheme";
+
+// Opened by the Rescan button. The handler (see scripts/install-launcher.ps1)
+// runs the fixed refresh script and ignores the URL, so this carries no data.
+const RESCAN_URI = "dockingbay://refresh";
+const RESCAN_POLL_MS = 1500;
+const RESCAN_TIMEOUT_MS = 120000;
 
 const KIND_LABEL = {
   "ssh-devcontainer": "devcontainer",
@@ -402,11 +410,97 @@ function moveSelection(dir) {
 
 function showLoadError(detail) {
   const el = document.getElementById("load-error");
-  el.style.display = "";
+  el.style.display = "block";
   el.textContent =
-    `Couldn't load launcher.config.json / projects.json (${detail}).\n\n` +
-    `This usually means the page was opened directly from disk (file://), which browsers block from fetching local JSON files.\n` +
-    `Run scripts/serve-launcher.ps1 and open the http://localhost URL it prints instead.`;
+    `Couldn't load ${detail}.\n\n` +
+    `It has to sit next to this page and be valid JSON wrapped in one assignment, e.g.\n` +
+    `window.DOCKING_BAY_PROJECTS = [ ... ];\n\n` +
+    `Coming from an older version with projects.json / launcher.config.json? Run scripts/install-launcher.ps1 (or scripts/refresh-projects.ps1) once to convert them.`;
+}
+
+// --- rescan ---
+
+function timeAgo(iso) {
+  const mins = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (!Number.isFinite(mins)) return "at an unknown time";
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  if (mins < 48 * 60) return `${Math.round(mins / 60)} h ago`;
+  return `${Math.round(mins / 1440)} days ago`;
+}
+
+function setScanNote(text, isError) {
+  const el = document.getElementById("scan-note");
+  el.textContent = text;
+  el.classList.toggle("error", !!isError);
+}
+
+function renderScanNote() {
+  const scanCount = (CONFIG.scans || []).length + (CONFIG.profiles || []).filter((p) => p.basePath).length;
+  if (!SCAN || !SCAN.at) {
+    setScanNote(scanCount
+      ? "Not scanned yet. Rescan looks through the locations listed in launcher.config.js."
+      : "No scan locations configured. Add a \"scans\" list to launcher.config.js to discover projects.");
+    return;
+  }
+  if (SCAN.fatal) {
+    setScanNote(`Last scan ${timeAgo(SCAN.at)} failed: ${SCAN.fatal}`, true);
+    return;
+  }
+  const scans = SCAN.scans || [];
+  const failed = scans.filter((s) => !s.ok);
+  const parts = [`Last scan ${timeAgo(SCAN.at)}`, `${scans.length - failed.length} of ${scans.length} locations`];
+  if ((SCAN.added || []).length) parts.push(`${SCAN.added.length} new`);
+  if ((SCAN.missing || []).length) parts.push(`${SCAN.missing.length} missing`);
+  let text = parts.join(" \u00b7 ");
+  if (failed.length) text += "\n" + failed.map((s) => `Failed: ${s.label} (${s.error})`).join("\n");
+  setScanNote(text, failed.length > 0);
+}
+
+// scan-status.js is rewritten by every scan. Re-loading it as a script is the
+// only way a page opened from disk can see that a scan has finished.
+function loadScanStatus() {
+  return new Promise((resolve) => {
+    const s = document.createElement("script");
+    s.src = `./scan-status.js?t=${Date.now()}`;
+    s.onload = () => { s.remove(); resolve(window.DOCKING_BAY_SCAN || null); };
+    s.onerror = () => { s.remove(); resolve(null); };
+    document.head.appendChild(s);
+  });
+}
+
+function scanStamp() { return SCAN && SCAN.at ? SCAN.at : null; }
+
+function startRescan() {
+  if (rescanTimer) return;
+  const btn = document.getElementById("rescan-btn");
+  const started = Date.now();
+  btn.disabled = true;
+  setScanNote("Scanning\u2026");
+  window.location.href = RESCAN_URI;
+
+  rescanTimer = setInterval(async () => {
+    const status = await loadScanStatus();
+    if (status && status.at && status.at !== scanStamp()) {
+      window.location.reload();
+      return;
+    }
+    if (Date.now() - started > RESCAN_TIMEOUT_MS) {
+      clearInterval(rescanTimer);
+      rescanTimer = null;
+      btn.disabled = false;
+      setScanNote(
+        "No scan result after 2 minutes. Rescan needs scripts/install-launcher.ps1 to have been run once on this machine; " +
+        "run scripts/refresh-projects.ps1 in a terminal to see what went wrong.", true);
+    }
+  }, RESCAN_POLL_MS);
+}
+
+// A logon/timer scan may have finished while the launcher sat in the background.
+async function reloadIfRescanned() {
+  if (rescanTimer || document.querySelector("dialog[open]") || filterText) return;
+  const status = await loadScanStatus();
+  if (status && status.at && status.at !== scanStamp()) window.location.reload();
 }
 
 function setupHelpDialog() {
@@ -516,7 +610,7 @@ function setupAddDialog() {
   });
 }
 
-async function boot() {
+function boot() {
   document.getElementById("reset-recent").addEventListener("click", () => {
     if (confirm("Clear the Recent list?")) { setRecent([]); render(); }
   });
@@ -537,6 +631,7 @@ async function boot() {
   // arrow keys with no text field focused is to scroll the page.
   document.addEventListener("keydown", (e) => {
     if (document.querySelector("dialog[open]")) return; // let dialogs handle their own keys
+    if (e.altKey && e.key.toLowerCase() === "r") { e.preventDefault(); startRescan(); return; }
     switch (e.key) {
       case "ArrowDown": e.preventDefault(); moveSelection("down"); break;
       case "ArrowUp": e.preventDefault(); moveSelection("up"); break;
@@ -562,19 +657,15 @@ async function boot() {
     render();
   });
 
-  let cfg, projects;
-  try {
-    [cfg, projects] = await Promise.all([
-      fetch("./launcher.config.json").then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
-      fetch("./projects.json").then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); }),
-    ]);
-  } catch (err) {
-    showLoadError(err.message || String(err));
-    return;
-  }
+  // Set by the launcher.config.js / projects.js / scan-status.js <script> tags.
+  const cfg = window.DOCKING_BAY_CONFIG;
+  const projects = window.DOCKING_BAY_PROJECTS;
+  if (!cfg || typeof cfg !== "object") return showLoadError("launcher.config.js");
+  if (!Array.isArray(projects)) return showLoadError("projects.js");
 
   CONFIG = cfg;
   PROJECTS = projects;
+  SCAN = window.DOCKING_BAY_SCAN || null;
 
   const profileLabels = (CONFIG.profiles || []).map((p) => p.label).join(", ") || "no profiles configured";
   document.getElementById("eyebrow").textContent = profileLabels;
@@ -583,12 +674,15 @@ async function boot() {
   setupAddDialog();
   setupHelpDialog();
 
+  document.getElementById("rescan-btn").addEventListener("click", () => {
+    startRescan();
+    search.focus();
+  });
+  window.addEventListener("focus", reloadIfRescanned);
+  renderScanNote();
+
   render();
   search.focus();
-
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./launcher-sw.js").catch(() => {});
-  }
 }
 
 boot();

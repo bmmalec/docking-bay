@@ -3,9 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none';" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src 'self' data:; base-uri 'none'; form-action 'none';" />
 <title>Docking Bay</title>
-<link rel="manifest" href="./launcher-manifest.webmanifest" />
 <link rel="icon" href="./launcher-icon.svg" type="image/svg+xml" />
 <meta name="theme-color" content="#121317" />
 <style>
@@ -93,6 +92,16 @@
     cursor: pointer;
   }
   .toolbar-btn:hover { border-color: var(--accent); }
+  .toolbar-btn:disabled { opacity: 0.5; cursor: default; border-color: var(--border); }
+  .toolbar-left { display: flex; gap: 8px; }
+  .scan-note {
+    margin: 10px 0 0;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-faint);
+    white-space: pre-line;
+  }
+  .scan-note.error { color: #f2a5a5; }
   .scheme-label {
     font-family: var(--mono);
     font-size: 11px;
@@ -374,8 +383,9 @@
     </div>
     <p class="search-hint">Type to filter &middot; <kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> to move &middot; <kbd>Enter</kbd> to launch &middot; <kbd>Esc</kbd> to clear</p>
     <div class="toolbar">
-      <div style="display:flex; gap:8px;">
+      <div class="toolbar-left">
         <button type="button" class="toolbar-btn" id="add-btn">+ Add project</button>
+        <button type="button" class="toolbar-btn" id="rescan-btn" title="Rescan the configured locations for projects (Alt+R)">&#10227; Rescan</button>
         <button type="button" class="toolbar-btn" id="help-btn" title="Help">?</button>
       </div>
       <label class="scheme-label">Color
@@ -388,6 +398,7 @@
         </select>
       </label>
     </div>
+    <p class="scan-note" id="scan-note"></p>
   </header>
 
   <div id="load-error"></div>
@@ -470,6 +481,11 @@
     <div class="shortcut-row"><kbd>&uarr;</kbd><kbd>&darr;</kbd><kbd>&larr;</kbd><kbd>&rarr;</kbd> move the selection around the grid</div>
     <div class="shortcut-row"><kbd>Enter</kbd> launch the selected tile</div>
     <div class="shortcut-row"><kbd>Esc</kbd> clear the search box</div>
+    <div class="shortcut-row"><kbd>Alt</kbd><kbd>R</kbd> rescan for projects</div>
+
+    <h3>Discovering projects</h3>
+    <p><strong>Rescan</strong> looks through every location listed under <code>scans</code> in <code>launcher.config.js</code> &mdash; an SSH host, a WSL distro, or a folder on this machine &mdash; and adds a tile for each subfolder it finds. New tiles are marked &ldquo;new, review&rdquo;; folders that have gone are marked &ldquo;missing&rdquo; rather than deleted.</p>
+    <p>The button needs <code>scripts/install-launcher.ps1</code> to have been run once. It also sets up a rescan at logon, so the list is usually current already.</p>
 
     <h3>Launch kinds</h3>
     <dl>
@@ -492,7 +508,7 @@
       <dt>By launch kind</dt><dd>Color tells you the mechanism: local, ssh, devcontainer, and wsl each get their own hue.</dd>
       <dt>Alphabetical rainbow</dt><dd>Purely visual &mdash; a hue sweep across the sorted project list.</dd>
     </dl>
-    <p>Switching schemes only changes what's rendered &mdash; it never writes to <code>projects.json</code>.</p>
+    <p>Switching schemes only changes what's rendered &mdash; it never writes to <code>projects.js</code>.</p>
 
     <div class="tip">
       <strong>Taskbar tip:</strong> each project's own <code>.vscode/settings.json</code> can set
@@ -531,10 +547,13 @@
 
   <footer>
     <p>Click a tile to open it &mdash; focuses the window if it's already open, launches fresh (SSH &rarr; devcontainer) in a new window if not. Click <span style="color:var(--star)">&#9733;</span> to pin a favorite. Projects without a devcontainer open as a plain SSH folder instead.</p>
-    <p>Fully self-contained: this page only ever talks to itself (see the CSP header) &mdash; no analytics, no external requests, no accounts. <code>localStorage</code> holds Recent/Favorites; <code>projects.json</code> and <code>launcher.config.json</code> hold the project list and your host/user/path, both plain text you can read before trusting. Launch links are local <code>vscode://</code> deep links opened by your OS's VS Code handler &mdash; this page never runs a remote command itself.</p>
+    <p>Fully self-contained: this page runs straight from disk with no server and cannot make a network request (see the CSP header) &mdash; no analytics, no external requests, no accounts. <code>localStorage</code> holds Recent/Favorites; <code>projects.js</code> and <code>launcher.config.js</code> hold the project list and your host/user/path, both plain text you can read before trusting. Launch links are local <code>vscode://</code> deep links opened by your OS's VS Code handler; Rescan opens a <code>dockingbay://</code> link that runs the fixed scan script &mdash; this page never runs a command itself.</p>
   </footer>
 </div>
 
+<script src="./launcher.config.js"></script>
+<script src="./projects.js"></script>
+<script src="./scan-status.js"></script>
 <script src="./project-launcher.js"></script>
 </body>
 </html>
